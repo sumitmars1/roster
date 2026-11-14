@@ -4,17 +4,227 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>秩序册名单</title>
+  <title>体育赛事秩序册整册生成工作台</title>
   <link rel="stylesheet" href="/static/style.css?v=1">
+  <link rel="stylesheet" href="/static/book.css?v=1">
   <script type="module" src="/static/app.js?v=1"></script>
+  <script type="module" src="/static/book.js?v=1"></script>
 </head>
 <body>
   <header class="top">
     <div class="top-inner">
-      <span class="brand-mark" aria-hidden="true"></span><span class="brand">赛事工作台</span>
-      <button id="history-open" class="secondary" type="button" aria-haspopup="dialog" aria-controls="history-dialog">生成历史</button>
+      <div class="brand-group">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand">赛事工作台</span>
+      </div>
+      <nav class="main-nav" aria-label="功能模块">
+        <button type="button" class="nav-tab is-active" data-tab="projects">秩序册生成</button>
+        <button type="button" class="nav-tab" data-tab="templates">模板库与入库</button>
+        <button type="button" class="nav-tab" data-tab="draw">抽签后更新</button>
+        <button type="button" class="nav-tab" data-tab="roster">单表名单</button>
+      </nav>
+      <button id="history-open" class="secondary" type="button" aria-haspopup="dialog" aria-controls="history-dialog">名单历史</button>
     </div>
   </header>
+
+  <section id="tab-projects" class="tab-panel book-shell">
+    <div class="heading">
+      <h1>整册秩序册生成</h1>
+      <p class="intro">选定版式模板并上传全套赛事资料（封面、规程、组织机构、报名表、分组、赛程、积分对阵等），由 Agent 研判整批文件并直接生成可预览与可下载的 Word + PDF 秩序册。</p>
+    </div>
+    <div class="book-grid">
+      <aside class="book-sidebar">
+        <div class="panel card-pad">
+          <h2 class="subhead">新建秩序册项目</h2>
+          <form id="proj-create-form" class="stack-form">
+            <label class="field-lbl">项目/赛事名称
+              <input id="proj-name-input" type="text" placeholder="如：綦江区第三届运动会五人制篮球比赛" required maxlength="120">
+            </label>
+            <label class="field-lbl">秩序册模板
+              <select id="proj-template-select"></select>
+            </label>
+            <p id="proj-template-desc" class="quiet tiny"></p>
+            <button type="submit" class="primary full-btn">创建项目</button>
+          </form>
+        </div>
+        <div class="panel card-pad">
+          <div class="row-between">
+            <h2 class="subhead">已有项目</h2>
+            <button id="proj-refresh-btn" type="button" class="secondary tiny-btn">刷新</button>
+          </div>
+          <ul id="proj-list" class="proj-list"></ul>
+        </div>
+      </aside>
+
+      <div id="proj-workspace" class="book-main">
+        <div id="proj-empty-hint" class="panel card-pad">
+          <p class="quiet">请在左侧选择一个已有项目，或创建新的秩序册项目开始上传资料。</p>
+        </div>
+        <div id="proj-active" hidden>
+          <div class="panel card-pad">
+            <div class="row-between wrap-gap">
+              <div>
+                <h2 id="proj-active-title" class="proj-title"></h2>
+                <p id="proj-active-meta" class="quiet tiny"></p>
+              </div>
+              <div class="row-gap">
+                <span id="proj-status-pill" class="pill">待生成</span>
+              </div>
+            </div>
+
+            <div class="mat-toolbar">
+              <div>
+                <h3 class="minihead">项目原始资料（可随时增删、替换后重新生成）</h3>
+                <span class="quiet tiny">支持多份 Word (.docx/.doc/.wps)、Excel (.xlsx/.xls/.et)、PDF、图片（封面/底图/尾页/对阵图等）</span>
+              </div>
+              <div class="row-gap">
+                <select id="mat-role-select" aria-label="资料用途预设">
+                  <option value="auto">自动智能识别用途</option>
+                  <option value="cover">作为封面</option>
+                  <option value="background">作为封面底图</option>
+                  <option value="back_cover">作为尾页</option>
+                  <option value="watermark">作为内页底图/水印</option>
+                </select>
+                <button id="mat-add-btn" type="button" class="secondary">+ 上传/补充资料</button>
+                <input id="mat-file-input" type="file" multiple hidden>
+                <input id="mat-replace-input" type="file" hidden>
+              </div>
+            </div>
+            <ul id="proj-materials-list" class="mat-list"></ul>
+
+            <div class="gen-bar">
+              <input id="proj-note-input" type="text" placeholder="可选补充要求，例如：按规程排除未开赛组别、赛程横排等…" maxlength="300">
+              <button id="proj-generate-btn" type="button" class="primary">生成整册 Word + PDF</button>
+            </div>
+            <p id="proj-stage-line" class="quiet tiny" hidden></p>
+            <p id="proj-error-line" class="alert" role="alert" hidden></p>
+            <details id="proj-trace-box" class="trace-box" hidden>
+              <summary class="quiet tiny">查看生成过程记录</summary>
+              <ol id="proj-trace-list" class="events"></ol>
+            </details>
+          </div>
+
+          <div id="proj-result-card" class="panel card-pad" hidden>
+            <div class="row-between wrap-gap">
+              <div>
+                <h3 class="minihead">已生成的秩序册</h3>
+                <p id="proj-version-meta" class="quiet tiny"></p>
+              </div>
+              <div class="row-gap">
+                <select id="proj-version-select" aria-label="切换版本"></select>
+                <a id="proj-dl-docx" class="secondary btn-link" download>下载 Word (.docx)</a>
+                <a id="proj-dl-pdf" class="primary btn-link" download>下载 PDF (.pdf)</a>
+              </div>
+            </div>
+
+            <div id="proj-audit-box" class="audit-grid"></div>
+
+            <div class="sub-draw-bar">
+              <span class="minihead">抽签后更新此版本赛程</span>
+              <input id="proj-draw-files" type="file" multiple>
+              <input id="proj-draw-note" type="text" placeholder="可选说明（默认替换抽签签位、保留胜负/名次引用）">
+              <button id="proj-draw-btn" type="button" class="secondary">提交抽签结果并更新秩序册</button>
+            </div>
+
+            <div class="pdf-viewer-wrap">
+              <iframe id="proj-pdf-frame" title="秩序册 PDF 在线预览"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-templates" class="tab-panel book-shell" hidden>
+    <div class="heading">
+      <h1>秩序册模板库与样例入库</h1>
+      <p class="intro">内置多类公文/综合赛事模板；您也可以上传一份历史 Word 秩序册样例，系统将解析其章节编排、版式字体与固定底图（不保留历史赛事人员与赛程数据）并保存为可长期复用的模板。</p>
+    </div>
+    <div class="book-grid">
+      <div class="book-sidebar">
+        <div class="panel card-pad">
+          <h2 class="subhead">从 Word 样例解析入库</h2>
+          <form id="tpl-parse-form" class="stack-form">
+            <label class="field-lbl">模板名称（留空则自动根据样例命名）
+              <input id="tpl-name-input" type="text" placeholder="如：全市系统运动会标准模板" maxlength="80">
+            </label>
+            <label class="field-lbl">选择 Word 样例秩序册 (.docx / .doc / .wps)
+              <input id="tpl-sample-input" type="file" accept=".docx,.doc,.wps" required>
+            </label>
+            <button id="tpl-parse-btn" type="submit" class="primary full-btn">解析并保存模板</button>
+            <p id="tpl-parse-msg" class="quiet tiny"></p>
+            <p id="tpl-parse-err" class="alert" role="alert" hidden></p>
+          </form>
+        </div>
+        <div class="panel card-pad">
+          <h2 class="subhead">根据赛事主画面生成封面预览</h2>
+          <form id="cover-gen-form" class="stack-form">
+            <label class="field-lbl">赛事主标题
+              <input id="cover-title-input" type="text" placeholder="如：2026年重庆市职工篮球赛" required>
+            </label>
+            <label class="field-lbl">落款/主办单位或日期（每行一条）
+              <textarea id="cover-footer-input" rows="2" placeholder="重庆市总工会&#10;2026年10月"></textarea>
+            </label>
+            <label class="field-lbl">上传主画面/底图（可选）
+              <input id="cover-bg-input" type="file" accept=".png,.jpg,.jpeg,.webp">
+            </label>
+            <button type="submit" class="secondary full-btn">合成 A4 封面图</button>
+          </form>
+          <div id="cover-preview-box" class="cover-preview" hidden>
+            <img id="cover-preview-img" alt="生成封面预览">
+            <a id="cover-preview-dl" class="secondary btn-link" download="封面.png">下载封面 PNG</a>
+          </div>
+        </div>
+      </div>
+      <div class="book-main">
+        <div id="tpl-cards" class="tpl-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-draw" class="tab-panel book-shell" hidden>
+    <div class="heading">
+      <h1>抽签后赛程更新（独立技能工作流）</h1>
+      <p class="intro">针对赛前仅按抽签签位（如 A1 VS A2）生成过的秩序册 Word（.docx），上传抽签结果表后自动核对上下文并将签位精准替换为参赛队名，同时完好保留“68胜——69胜”与交叉排名引用。</p>
+    </div>
+    <div class="panel card-pad">
+      <form id="standalone-draw-form" class="draw-form-grid">
+        <label class="field-lbl">1. 上传待更新的秩序册 Word（.docx）
+          <input id="sd-book-input" type="file" accept=".docx" required>
+        </label>
+        <label class="field-lbl">2. 上传抽签结果表（Excel / Word / PDF / 图片）
+          <input id="sd-draw-input" type="file" multiple required>
+        </label>
+        <label class="field-lbl full-span">3. 可选更新要求备注
+          <input id="sd-note-input" type="text" placeholder="如：区分部门组与街镇组 A1/A2，保留淘汰赛胜负关系">
+        </label>
+        <div class="full-span row-gap">
+          <button id="sd-submit-btn" type="submit" class="primary">开始执行抽签后更新</button>
+          <span id="sd-status-text" class="quiet"></span>
+        </div>
+      </form>
+      <p id="sd-error" class="alert" role="alert" hidden></p>
+    </div>
+
+    <div id="sd-result-card" class="panel card-pad" hidden>
+      <div class="row-between wrap-gap">
+        <div>
+          <h3 class="minihead">抽签更新完成</h3>
+          <p id="sd-summary-line" class="quiet tiny"></p>
+        </div>
+        <div class="row-gap">
+          <a id="sd-dl-docx" class="secondary btn-link" download>下载更新版 Word (.docx)</a>
+          <a id="sd-dl-pdf" class="primary btn-link" download>下载更新版 PDF (.pdf)</a>
+        </div>
+      </div>
+      <div id="sd-diff-box" class="audit-grid"></div>
+      <div class="pdf-viewer-wrap">
+        <iframe id="sd-pdf-frame" title="抽签更新版 PDF 在线预览"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <div id="tab-roster" class="tab-panel" hidden>
   <main>
     <div class="heading"><h1>秩序册名单</h1><p class="intro">汇总报名资料，由 DeepSeek Harness 按需读取并生成可编辑的 Word 名单。</p></div>
     <div class="workspace">
@@ -107,6 +317,7 @@
       </section>
     </div>
   </main>
+  </div>
 
   <dialog id="history-dialog" class="history-dialog" aria-labelledby="history-heading">
     <div class="history-header">

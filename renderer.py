@@ -23,8 +23,9 @@ def _apply_defaults(roster: dict, title: str, group: str) -> None:
     for item in roster.get("groups", []):
         if not isinstance(item, dict):
             continue
-        if "title" in item and not str(item.get("title") or "").strip():
-            item["title"] = group or title
+        if not str(item.get("title") or "").strip():
+            raw_g = str(item.get("group") or item.get("name") or group or title or "代表队名单").strip()
+            item["title"] = raw_g.split("；", 1)[0].strip() or "代表队名单"
 
 
 def _pick(value: dict, allowed: set[str]) -> dict:
@@ -99,10 +100,13 @@ def _sanitize(roster: dict, preset: str) -> None:
             ]
     if preset == "two-column-numbered" and isinstance(roster.get("groups"), list):
         roster["groups"] = [
-            {"title": group.get("title") or "", "teams": [
-                _team(team, {"name", "leader", "coach", "leader_phone", "coach_phone"})
-                for team in group.get("teams", []) if isinstance(team, dict)
-            ]}
+            {
+                "title": str(group.get("title") or group.get("group") or group.get("name") or "").strip(),
+                "teams": [
+                    _team(team, {"name", "leader", "coach", "leader_phone", "coach_phone"})
+                    for team in group.get("teams", []) if isinstance(team, dict)
+                ],
+            }
             for group in roster["groups"] if isinstance(group, dict)
         ]
 

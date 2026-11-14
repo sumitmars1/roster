@@ -19,12 +19,38 @@ from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from PIL import Image, ImageOps
 
+def find_soffice() -> str | None:
+    """Locate the LibreOffice soffice binary across env overrides and macOS/Linux paths."""
+    from os import getenv
+
+    candidates = [
+        getenv("LIBREOFFICE_BIN", "").strip(),
+        getenv("SOFFICE_PATH", "").strip(),
+        "soffice",
+        "libreoffice",
+        "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+        "/opt/homebrew/bin/soffice",
+        "/usr/local/bin/soffice",
+        str(
+            Path.home()
+            / "Library/Application Support/TRAE SOLO CN/ModularData/ai-agent/vm/tools/opt/libreoffice/LibreOffice.app/Contents/MacOS/soffice"
+        ),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        found = which(candidate)
+        if found:
+            return found
+    return None
+
+
 LEGACY_SHEETS = {".xls", ".et"}
 TEXTUTIL = Path("/usr/bin/textutil")
 EXTENSIONS = {".xlsx", ".docx", ".pdf", ".png", ".jpg", ".jpeg", ".webp"} | LEGACY_SHEETS
-if TEXTUTIL.is_file():
+SOFFICE = find_soffice()
+if TEXTUTIL.is_file() or SOFFICE:
     EXTENSIONS.add(".wps")
-SOFFICE = which("soffice") or which("/Applications/LibreOffice.app/Contents/MacOS/soffice")
 if SOFFICE:
     EXTENSIONS.add(".doc")
 Image.MAX_IMAGE_PIXELS = 24_000_000

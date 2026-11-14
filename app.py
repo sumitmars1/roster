@@ -14,13 +14,15 @@ from starlette.concurrency import run_in_threadpool
 import documents
 import harness_runner
 import storage
+from book_api import router as book_router
 from config import (
     API_KEY, MAX_FILE_BYTES, MAX_FILES, MAX_REVIEW_ANSWER, MAX_TOTAL_BYTES, STATIC, TASKS,
 )
 from presets import PRESETS
 
-app = FastAPI(title="秩序册名单 Harness", docs_url="/docs")
+app = FastAPI(title="体育赛事秩序册整册生成平台", docs_url="/docs")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+app.include_router(book_router)
 TASKS.mkdir(parents=True, exist_ok=True)
 
 
@@ -40,9 +42,16 @@ def _safe_name(value: str, fallback: str) -> str:
     return value[:180] or fallback
 
 
+def _spa_index() -> FileResponse:
+    dist_index = STATIC / "dist" / "index.html"
+    if dist_index.is_file():
+        return FileResponse(dist_index)
+    return FileResponse(STATIC / "index.html")
+
+
 @app.get("/", include_in_schema=False)
 def home():
-    return FileResponse(STATIC / "index.html")
+    return _spa_index()
 
 
 @app.get("/api/options")
@@ -282,3 +291,10 @@ def source(task_id: str, file_id: str):
             if path.is_file():
                 return FileResponse(path, filename=file["name"])
     raise HTTPException(404, "资料不存在。")
+
+
+@app.get("/{spa_path:path}", include_in_schema=False)
+def spa_fallback(spa_path: str):
+    if spa_path.startswith(("api/", "static/")) or spa_path in {"api", "static", "docs", "openapi.json", "redoc"}:
+        raise HTTPException(404, "Not Found")
+    return _spa_index()

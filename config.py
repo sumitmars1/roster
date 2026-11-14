@@ -5,7 +5,9 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
+from os import getenv as _getenv
+
+DATA = Path(_getenv("EVENT_BOOK_DATA_DIR") or str(ROOT / "data")).resolve()
 TASKS = DATA / "tasks"
 STATIC = ROOT / "static"
 SKILLS = ROOT / "skills" / "intake"

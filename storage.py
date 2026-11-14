@@ -57,15 +57,33 @@ def write_json(path: Path, value: Any) -> None:
             pass
 
 
+import threading
+
+_PATH_LOCKS_GUARD = threading.Lock()
+_PATH_LOCKS: dict[Path, threading.Lock] = {}
+
+
+def _thread_lock(path: Path) -> threading.Lock:
+    key = path.resolve()
+    with _PATH_LOCKS_GUARD:
+        lock = _PATH_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _PATH_LOCKS[key] = lock
+        return lock
+
+
 @contextmanager
 def locked(path: Path) -> Iterator[None]:
+    """Serialize access across threads in this process and across processes."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a+") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+    with _thread_lock(path):
+        with path.open("a+") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def mutate_json(path: Path, change: Callable[[Any], Any], default: Any = None) -> Any:
@@ -103,11 +121,12 @@ def mutate_task(task_id: str, update: Callable[[dict], None]) -> dict:
 
 
 def append_trace(task_id: str, event: dict) -> None:
-    """Append one UI-facing tool event; the MCP process is the only writer."""
+    """Append one UI-facing tool event safely across concurrent writers."""
     path = task_dir(task_id) / "trace.jsonl"
     record = {"time": now(), **event}
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    with locked(path.with_suffix(".jsonl.lock")):
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def read_trace(task_id: str, limit: int = 120) -> list[dict]:
@@ -155,7 +174,7 @@ def history(limit: int = 60) -> list[dict]:
         if not directory.is_dir():
             continue
         state = read_json(directory / "state.json")
-        if not isinstance(state, dict) or state.get("status") != "done":
+        if not isinstance(state, dict) or state.get("status") != "done" or state.get("internal"):
             continue
         result = state.get("result") or {}
         word = directory / result.get("word", "") if result.get("word") else None

@@ -30,8 +30,8 @@ from roster_validation import RosterError, source_matches, validate, validate_co
 
 MAX_NOTE = 2000
 MAX_QUESTION = 1200
-MAX_CHUNK_BYTES = 30_000
-MAX_APPEND_ROWS = 40
+MAX_CHUNK_BYTES = 64_000
+MAX_APPEND_ROWS = 80
 ROW_PRESETS = {"individual-table", "paired-table", "unit-contact-table"}
 SCOPE_FILES: tuple[str, ...] = ()
 
@@ -73,7 +73,7 @@ def list_tools() -> list[types.Tool]:
                     "file_id": {"type": "string", "description": "list_documents 返回的文件编号，例如 F1。"},
                     "unit": {"type": "integer", "minimum": 1, "description": "该文件的页、工作表或正文单元编号。"},
                     "start": {"type": "integer", "minimum": 1, "description": "从 1 开始的文字行或表格行位置。"},
-                    "limit": {"type": "integer", "minimum": 1, "maximum": 200, "description": "读取行数，默认 60。"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 200, "description": "读取行数，默认 60；Excel 建议传 150 一次读完。"},
                     "view": {"type": "string", "enum": ["text", "image", "layout"],
                              "description": "text 文字；image 原页图；layout PDF 文字坐标。"},
                 },
@@ -85,7 +85,7 @@ def list_tools() -> list[types.Tool]:
             name="append_rows",
             description=(
                 "逐人/配对/单位联系人母版的分批提交入口。一次提交一个分段标题下的若干行，"
-                "建议每次 20–30 行；同名分段会自动合并。每行必须是母版要求的对象，且带 source。"
+                "建议每次 40–60 行（上限 80 行）；同名分段会自动合并。每行必须是母版要求的对象，且带 source。"
                 "全部行提交完后调用 finish_roster。"
             ),
             inputSchema={
@@ -103,10 +103,9 @@ def list_tools() -> list[types.Tool]:
         types.Tool(
             name="append_roster",
             description=(
-                "横排/团体/双栏/分组等结构化母版的分批提交入口。一次提交一个 section（含 data）"
-                "或一个 group（含 teams），可以多次调用。双栏编号的运动员放在 "
+                "横排/团体/双栏/分组等结构化母版的分批提交入口。一次可提交一个 section（含 data）"
+                "或包含多个队伍的 group（含 teams，建议每次 4–8 队或 64KB 以内），可以多次调用。双栏编号的运动员放在 "
                 "entry.teams[].players，续段沿用相同队名。所有分段提交完后调用 finish_roster。"
-                "不要一次提交整份很大的嵌套 JSON。"
             ),
             inputSchema={
                 "type": "object",
@@ -266,7 +265,7 @@ def _append_roster(task_id: str, args: dict) -> str:
     if not isinstance(entry, dict) or not entry:
         raise RosterError("entry 必须是一个非空对象。")
     if len(json.dumps(entry, ensure_ascii=False).encode()) > MAX_CHUNK_BYTES:
-        raise RosterError("本次 entry 太大；请拆成一个组或一个队再提交。")
+        raise RosterError("本次 entry 太大；请减少每次提交的队伍数再提交。")
     if preset == "two-column-numbered":
         if not isinstance(entry.get("teams"), list) or not entry["teams"]:
             raise RosterError(
