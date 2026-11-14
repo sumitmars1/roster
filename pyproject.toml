@@ -1,0 +1,25 @@
+[project]
+name = "event-roster-harness"
+version = "0.1.0"
+description = "A DeepSeek Harness-centered roster extraction app"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "python-multipart>=0.0.20,<1",
+  "pymupdf>=1.26,<2",
+  "pillow>=11,<13",
+  "docxtpl==0.20.2",
+  "jinja2>=3.1,<4",
+  "openpyxl==3.1.5",
+  "xlrd>=2.0.2,<3",
+  "python-docx>=1.2,<2",
+  "lxml>=5,<7",
+  "jsonschema>=4,<5",
+  "deepseek-harness-sdk>=0.2.2rc2",
+  "mcp>=2.3,<3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>秩序册名单</title>
+  <link rel="stylesheet" href="/static/style.css?v=1">
+  <script type="module" src="/static/app.js?v=1"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <span class="brand-mark" aria-hidden="true"></span><span class="brand">赛事工作台</span>
+      <button id="history-open" class="secondary" type="button" aria-haspopup="dialog" aria-controls="history-dialog">生成历史</button>
+    </div>
+  </header>
+  <main>
+    <div class="heading"><h1>秩序册名单</h1><p class="intro">汇总报名资料，由 DeepSeek Harness 按需读取并生成可编辑的 Word 名单。</p></div>
+    <div class="workspace">
+      <form id="new-task" class="setup">
+        <section class="panel upload-panel" id="drop" aria-labelledby="upload-heading">
+          <div class="panel-heading">
+            <div><h2 id="upload-heading">报名资料</h2><span id="file-count" class="quiet" aria-live="polite">已选 0 份</span></div>
+            <button id="add-files" type="button" class="secondary"><span aria-hidden="true">+</span> 添加文件</button>
+          </div>
+          <input type="file" multiple id="file-input" hidden>
+          <button id="empty-upload" type="button" class="empty-upload" aria-describedby="upload-limit">选择或拖入报名资料</button>
+          <ul id="file-list" class="file-list"></ul>
+          <p id="upload-limit" class="quiet upload-limit">Excel、Word、PDF 或图片</p>
+          <p id="upload-note" class="alert" role="alert" hidden></p>
+        </section>
+        <div class="settings-column">
+          <section class="panel">
+            <div class="panel-heading"><h2>输出设置</h2></div>
+            <div class="input-row">
+              <label>赛事名称<input name="title" maxlength="100" placeholder="如：职工乒乓球赛" required></label>
+              <label>组别 <small>选填</small><input name="group" maxlength="70" placeholder="如：混合双打组"></label>
+            </div>
+            <fieldset id="template-picker" class="template-field" aria-describedby="template-example" hidden>
+              <legend class="template-label">名单版式</legend>
+              <div class="preset-layout">
+                <div id="presets" class="presets"></div>
+                <figure class="preset-preview">
+                  <figcaption>
+                    <span id="preview-name"></span>
+                    <span id="template-example" class="quiet">示例数据</span>
+                  </figcaption>
+                  <div id="preset-sample" class="preset-sheet" role="region" aria-labelledby="preview-name" tabindex="0"></div>
+                </figure>
+              </div>
+            </fieldset>
+          </section>
+          <button id="start" type="submit" class="primary" disabled>开始整理 <span aria-hidden="true">→</span></button>
+          <p id="submit-error" class="alert" role="alert" hidden></p>
+        </div>
+      </form>
+
+      <section class="panel activity" aria-labelledby="activity-heading" id="activity" hidden>
+        <div class="activity-header">
+          <div class="activity-title">
+            <h2 id="activity-heading">整理任务</h2>
+            <span id="task-state" class="state" role="status"><span class="task-indicator" aria-hidden="true"></span><span id="task-state-label"></span></span>
+          </div>
+          <div class="activity-actions">
+            <button id="restart-task" class="secondary" type="button" hidden>重新整理</button>
+            <a id="word" class="primary" download hidden><span class="download-icon" aria-hidden="true"></span>下载 Word</a>
+          </div>
+        </div>
+        <p id="task-detail" class="quiet"></p>
+        <div id="task-progress" class="task-progress" role="progressbar" aria-label="整理进度" hidden><span></span></div>
+        <section id="batch-progress" class="batch-progress" aria-label="资料进度" hidden>
+          <h3>资料进度</h3>
+          <ul id="batch-files"></ul>
+        </section>
+        <section id="review" class="review" aria-labelledby="review-heading" hidden>
+          <div class="review-message">
+            <h3 id="review-heading">需要你核对</h3>
+            <p id="review-question"></p>
+            <div id="review-context" class="review-context" hidden>
+              <span id="review-filename"></span>
+              <span id="review-location"></span>
+            </div>
+            <details id="review-evidence" hidden>
+              <summary>查看资料位置</summary>
+              <ul id="review-evidence-list"></ul>
+            </details>
+            <button id="source-open" class="review-source-open" type="button" aria-haspopup="dialog" aria-controls="source-dialog" hidden>查看报名表</button>
+          </div>
+          <fieldset id="review-options" class="review-options" aria-label="点击选项立即提交" hidden>
+            <legend>可选回复</legend><div id="review-option-list"></div>
+          </fieldset>
+          <form id="review-reply" class="review-reply">
+            <textarea id="answer" rows="2" maxlength="2500" aria-label="回复核对问题" placeholder="输入你的回复…"></textarea>
+            <button id="resume" type="submit" class="primary" aria-label="发送回复" title="发送回复" disabled><span class="send-icon" aria-hidden="true"></span></button>
+          </form>
+          <p id="review-error" class="alert" role="alert" hidden></p>
+        </section>
+        <p id="task-error" class="alert" role="alert" hidden></p>
+        <button id="activity-toggle" class="activity-toggle" type="button" aria-expanded="false" aria-controls="activity-log">
+          <span id="activity-toggle-label">处理记录</span><span class="chevron" aria-hidden="true"></span>
+        </button>
+        <div id="activity-log" class="activity-log" hidden>
+          <p id="empty-log" class="quiet">正在等待工具调用记录。</p>
+          <ol id="events" class="events"></ol>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="history-dialog" class="history-dialog" aria-labelledby="history-heading">
+    <div class="history-header">
+      <h2 id="history-heading">生成历史</h2>
+      <form method="dialog"><button class="secondary" autofocus>关闭</button></form>
+    </div>
+    <p id="history-status" class="quiet" role="status"></p>
+    <ul id="history-list" class="history-list"></ul>
+  </dialog>
+  <dialog id="source-dialog" class="history-dialog source-dialog" aria-labelledby="source-heading">
+    <div class="history-header">
+      <h2 id="source-heading">报名表预览</h2>
+      <form method="dialog"><button class="secondary" autofocus>关闭</button></form>
+    </div>
+    <div id="sources" class="sources"></div>
+  </dialog>
+</body>
+</html>
